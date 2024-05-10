@@ -19,14 +19,14 @@ from tqdm import tqdm
 from copy import deepcopy
 import torch.nn.functional as F
 import torchcontrib
-from model.train_methods import awa_train_combined, train_cali_mcx
+from model.train_methods import awa_train_combined, train_cali_mc
 from model.test_methods import combined_test
 
 
 #*************************************************************************#
 Mode = 'train'
 DEBUG = 'True'
-DATASET = 'PEMS08'      #PEMS04/8/3/7
+DATASET = 'PEMS03'      #PEMS04/8/3/7
 DEVICE = 'cuda:0'
 MODEL = 'AGCRN'
 MODEL_NAME = "combined"#"combined/basic/dropout/heter"
@@ -107,6 +107,10 @@ args.add_argument('--log_step', default=config['log']['log_step'], type=int)
 args.add_argument('--plot', default=config['log']['plot'], type=eval)
 args.add_argument('--model_name', default=MODEL_NAME, type=str)
 
+#save model
+args.add_argument('--save_path', default='./model/saved_model/', type=str)
+args.add_argument('--save_filename', default='{}_{}.pth'.format(DATASET, 'saved_model'), type=str)
+
 
 
 args = args.parse_args([])
@@ -170,7 +174,16 @@ trainer.train()
 T = train_cali_mc(trainer.model,10, args, val_loader, scaler)
 combined_test(trainer.model,10,trainer.args, trainer.test_loader, scaler,T)
 
+# save model under /model/saved_model
+# Ensure directory exists
+if not os.path.exists(args.save_path):
+    os.makedirs(args.save_path)
 
+# Save the model
+model_save_path = os.path.join(args.save_path, args.save_filename)
+torch.save(model.state_dict(), model_save_path)
+print('***************Model saved successfully at {}'.format(model_save_path))
 
+# print('***************Model saved successfully under model/saved_model/{}_{}.pth!'.format(args.dataset, args.model_name))
 
 

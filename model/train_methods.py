@@ -125,7 +125,7 @@ class ModelCali(nn.Module):
         
               
 def train_cali(model, args, data_loader, scaler, logger=None, path=None):
-    model_cali = ModelCali(args).cuda()
+    model_cali = ModelCali(args)
     optimizer_cali = torch.optim.LBFGS(list(model_cali.parameters()), lr=0.02, max_iter=500)
     model.eval()
     #nll_fun = nn.GaussianNLLLoss()
@@ -165,7 +165,7 @@ def train_cali(model, args, data_loader, scaler, logger=None, path=None):
     
     
 def train_cali_mc(model,num_samples, args, data_loader, scaler, logger=None, path=None):
-    model_cali = ModelCali(args).cuda()
+    model_cali = ModelCali(args)
     optimizer_cali = torch.optim.LBFGS(list(model_cali.parameters()), lr=0.02, max_iter=500)
     model.eval()
     enable_dropout(model)
@@ -177,8 +177,8 @@ def train_cali_mc(model,num_samples, args, data_loader, scaler, logger=None, pat
             y_true.append(label)
     y_true = scaler.inverse_transform(torch.cat(y_true, dim=0)).squeeze(3)
     
-    mc_mus = torch.empty(0, y_true.size(0), y_true.size(1), y_true.size(2)).cuda()
-    mc_log_vars = torch.empty(0, y_true.size(0),y_true.size(1), y_true.size(2)).cuda()
+    mc_mus = torch.empty(0, y_true.size(0), y_true.size(1), y_true.size(2))
+    mc_log_vars = torch.empty(0, y_true.size(0),y_true.size(1), y_true.size(2))
     
     with torch.no_grad():
         for i in tqdm(range(num_samples)):

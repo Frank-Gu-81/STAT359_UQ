@@ -5,7 +5,7 @@ from lib.metrics import All_Metrics
 from tqdm import tqdm 
 
 ####======MC+Heter========####
-def combined_test(model,num_samples,args, data_loader, scaler, T=torch.zeros(1).cuda(), logger=None, path=None):
+def combined_test(model,num_samples,args, data_loader, scaler, T=torch.zeros(1), logger=None, path=None):
     model.eval()
     enable_dropout(model)
     nll_fun = nn.GaussianNLLLoss()
@@ -16,8 +16,8 @@ def combined_test(model,num_samples,args, data_loader, scaler, T=torch.zeros(1).
             y_true.append(label)
     y_true = scaler.inverse_transform(torch.cat(y_true, dim=0)).squeeze(3)
     
-    mc_mus = torch.empty(0, y_true.size(0), y_true.size(1), y_true.size(2)).cuda()
-    mc_log_vars = torch.empty(0, y_true.size(0),y_true.size(1), y_true.size(2)).cuda()
+    mc_mus = torch.empty(0, y_true.size(0), y_true.size(1), y_true.size(2))
+    mc_log_vars = torch.empty(0, y_true.size(0),y_true.size(1), y_true.size(2))
     
     with torch.no_grad():
         for i in tqdm(range(num_samples)):
@@ -51,6 +51,8 @@ def combined_test(model,num_samples,args, data_loader, scaler, T=torch.zeros(1).
     upper_bound = y_pred+1.96*total_std
     in_num = torch.sum((y_true >= lower_bound)&(y_true <= upper_bound ))
     picp = in_num/(y_true.size(0)*y_true.size(1)*y_true.size(2))
+
+    mae, rmse, mape, _, _ = All_Metrics(y_pred, y_true, args.mae_thresh, args.mape_thresh)
     
     
     print("Average Horizon, MAE: {:.4f}, RMSE: {:.4f}, MAPE: {:.4f}%,  NLL: {:.4f}, \

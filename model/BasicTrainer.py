@@ -45,11 +45,11 @@ class Trainer(object):
                     
                 if self.args.model_name == "basic" or self.args.model_name=="dropout":
                     output = self.model(data, target, teacher_forcing_ratio=0.)
-                    loss = self.loss(output.cuda(), label)
+                    loss = self.loss(output, label)
                 
                 elif self.args.model_name == "heter" or self.args.model_name=="combined":
                     output, _ = self.model(data, target, teacher_forcing_ratio=0.)
-                    loss = self.loss(output.cuda(), label)
+                    loss = self.loss(output, label)
                 
                 elif self.args.model_name == "quantile": 
                     output = self.model(data, target, teacher_forcing_ratio=0.)                
@@ -90,7 +90,7 @@ class Trainer(object):
                     data = data[:,index,:,:]
                     
                     output = self.model(data, target, teacher_forcing_ratio=0.)
-                    loss = self.loss(output.cuda(), label)
+                    loss = self.loss(output, label)
                     
             elif self.args.model_name == "heter" or self.args.model_name=="combined":    
                 mu, log_var = self.model(data, target, teacher_forcing_ratio=teacher_forcing_ratio)
