@@ -17,6 +17,7 @@ def combined_test(model,num_samples,args, data_loader, scaler, T=torch.zeros(1),
     y_true = scaler.inverse_transform(torch.cat(y_true, dim=0)).squeeze(3)
     
     mc_mus = torch.empty(0, y_true.size(0), y_true.size(1), y_true.size(2))
+    # mc_log_var is the log variance, it is the aleatoric uncertainty
     mc_log_vars = torch.empty(0, y_true.size(0),y_true.size(1), y_true.size(2))
     
     with torch.no_grad():
@@ -37,11 +38,17 @@ def combined_test(model,num_samples,args, data_loader, scaler, T=torch.zeros(1),
             log_var_pred = torch.cat(log_var_pred, dim=0)    
 
             #print(mc_mus.size(),mu_pred.size())    
-            mc_mus = torch.vstack((mc_mus,mu_pred.unsqueeze(0)))   
+            # mc_mus is the mean of the predictions, it is the epistemic uncertainty
+            mc_mus = torch.vstack((mc_mus,mu_pred.unsqueeze(0)))  
+            # mc_log_var is the log variance, it is the aleatoric uncertainty 
             mc_log_vars = torch.vstack((mc_log_vars,log_var_pred.unsqueeze(0))) 
     
     temperature = torch.exp(T)     
     y_pred = torch.mean(mc_mus, axis=0)
+    aleatoric_uncertainty = torch.exp(torch.mean(mc_log_vars, axis=0))/temperature
+    epistemic_uncertainty = torch.var(mc_mus, axis=0)
+    total_uncertainty = aleatoric_uncertainty + epistemic_uncertainty
+    total_std = total_uncertainty**0.5
     total_var = torch.var(mc_mus, axis=0)+torch.exp(torch.mean(mc_log_vars, axis=0))/temperature   
     total_std = total_var**0.5 
     
@@ -58,3 +65,4 @@ def combined_test(model,num_samples,args, data_loader, scaler, T=torch.zeros(1),
     print("Average Horizon, MAE: {:.4f}, RMSE: {:.4f}, MAPE: {:.4f}%,  NLL: {:.4f}, \
 PICP: {:.4f}%, MPIW: {:.4f}".format(mae, rmse, mape*100, nll, picp*100, mpiw))  
     
+    return y_pred, y_true, aleatoric_uncertainty, epistemic_uncertainty, total_std, lower_bound, upper_bound
