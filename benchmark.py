@@ -146,9 +146,9 @@ def generate_uncertainty_qualification():
 
 def plot_uncertainty_qualification():
     aleatoric_uncertainty = np.load("aleatoric_uncertainty.npy")
-    # print(aleatoric_uncertainty)
+    print(aleatoric_uncertainty.shape)
     aleatoric_uncertainty = aleatoric_uncertainty.mean(axis=(1)) / 10000
-    print(aleatoric_uncertainty)
+    print(aleatoric_uncertainty.shape)
     print(f'Aleatoric Uncertainty shape {aleatoric_uncertainty.shape}')
 
     epistemic_uncertainty = np.load("epistemic_uncertainty.npy")
@@ -183,6 +183,50 @@ def plot_uncertainty_qualification():
     plt.show()
 
 
+def random_RS_plot_uncertainty_qualification():
+    aleatoric_uncertainty = np.load("aleatoric_uncertainty.npy")
+    print(aleatoric_uncertainty.shape)
+    aleatoric_uncertainty = aleatoric_uncertainty[1670:2300,:,3]
+    print("after: ", aleatoric_uncertainty.shape)
+    aleatoric_uncertainty = aleatoric_uncertainty.mean(axis=(1))
+    print(aleatoric_uncertainty.shape)
+    print(f'Aleatoric Uncertainty shape {aleatoric_uncertainty.shape}')
+
+    epistemic_uncertainty = np.load("epistemic_uncertainty.npy")
+    epistemic_uncertainty = epistemic_uncertainty[1670:2300,:,3]
+    epistemic_uncertainty = epistemic_uncertainty.mean(axis=(1))
+    print(epistemic_uncertainty)
+    print(f'Epistemic Uncertainty shape {epistemic_uncertainty.shape}')
+
+    y_pred = np.load("y_pred.npy")
+    print(f'y_pred shape before {y_pred.shape}')
+    y_pred = y_pred[1670:2300, :, 3]
+    y_pred = y_pred.mean(axis=(1))
+    print(f'y_pred shape {y_pred.shape}')
+    y_true = np.load("y_true.npy")
+    y_true = y_true[1670:2300, :, 3]
+    y_true = y_true.mean(axis=(1))
+    print(f'y_true shape {y_true.shape}')
+
+    total_uncertainty = aleatoric_uncertainty + epistemic_uncertainty
+    total_std = total_uncertainty**0.5
+
+    print(f'Total Uncertainty shape {total_uncertainty.shape}')
+
+    print(f'Total Uncertainty shape {total_uncertainty.shape}')
+    time_steps = np.arange(y_pred.shape[0])
+    print(f'Time steps shape {time_steps.shape}')
+    plt.figure(figsize=(12, 6))
+    plt.plot(time_steps, y_true, label='True', color='black')
+    plt.plot(time_steps, y_pred, label='Predicted', color='red')
+    plt.fill_between(time_steps, y_pred-1.96*total_std, y_pred+1.96*total_std,
+                        color='blue', alpha=0.3, label='Total Uncertainty')
+    plt.xlabel('Time/Hour')
+    plt.ylabel('Traffic Flow')
+    plt.legend()
+    plt.title('Uncertainty Quantification Results')
+    plt.show()
+
 def save_uncertainty_qualification(y_pred, y_true, aleatoric_uncertainty, epistemic_uncertainty, total_std, lower_bound, upper_bound):
     y_pred = y_pred.cpu().numpy().squeeze()
     np.save("y_pred.npy", y_pred)
@@ -192,9 +236,9 @@ def save_uncertainty_qualification(y_pred, y_true, aleatoric_uncertainty, episte
     y_true = y_true.mean(axis=2)
     total_std = total_std.cpu().numpy().squeeze()
     aleatoric_uncertainty = aleatoric_uncertainty.cpu().numpy().squeeze()
-    aleatoric_uncertainty = aleatoric_uncertainty.mean(axis=2)
+    # aleatoric_uncertainty = aleatoric_uncertainty.mean(axis=2)
     epistemic_uncertainty = epistemic_uncertainty.cpu().numpy().squeeze()
-    epistemic_uncertainty = epistemic_uncertainty.mean(axis=2)
+    # epistemic_uncertainty = epistemic_uncertainty.mean(axis=2)
     total_uncertainty = aleatoric_uncertainty + epistemic_uncertainty
     print(y_pred.shape, y_true.shape, aleatoric_uncertainty.shape, epistemic_uncertainty.shape, total_std.shape, lower_bound.shape, upper_bound.shape)
 
@@ -210,4 +254,5 @@ def save_uncertainty_qualification(y_pred, y_true, aleatoric_uncertainty, episte
 if __name__ == "__main__":
     # metrics()
     # generate_uncertainty_qualification()
-    plot_uncertainty_qualification()
+    # plot_uncertainty_qualification()
+    random_RS_plot_uncertainty_qualification()
