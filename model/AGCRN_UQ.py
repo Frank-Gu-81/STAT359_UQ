@@ -15,6 +15,7 @@ class AVWDCRNN(nn.Module):
         self.dcrnn_cells.append(AGCRNCell(model_name, p1,node_num, dim_in, dim_out, cheb_k, embed_dim))
         for _ in range(1, num_layers):
             self.dcrnn_cells.append(AGCRNCell(model_name, p1,node_num, dim_out, dim_out, cheb_k, embed_dim))
+     
 
     def forward(self, x, init_state, node_embeddings):
         #shape of x: (B, T, N, D)
@@ -34,6 +35,7 @@ class AVWDCRNN(nn.Module):
         #current_inputs: the outputs of last layer: (B, T, N, hidden_dim)
         #output_hidden: the last state for each layer: (num_layers, B, N, hidden_dim)
         #last_state: (B, N, hidden_dim)
+        
         return current_inputs, output_hidden
 
     def init_hidden(self, batch_size):
@@ -57,8 +59,8 @@ class AGCRN_UQ(nn.Module):
         ###
         self.model_name = args.model_name 
         self.p1= args.p1
-        
-        
+        self.relu = torch.nn.ReLU()
+        self.fc=torch.nn.Linear(64,1)
         self.default_graph = args.default_graph
         self.node_embeddings = nn.Parameter(torch.randn(self.num_node, args.embed_dim), requires_grad=True)
     
@@ -89,10 +91,14 @@ class AGCRN_UQ(nn.Module):
         #supports = F.softmax(F.relu(torch.mm(self.nodevec1, self.nodevec1.transpose(0,1))), dim=1)
 
         emb = self.node_embeddings   
+        
         init_state = self.encoder.init_hidden(source.shape[0])
         output, _ = self.encoder(source, init_state, emb)      #B, T, N, hidden
-        #print(output.shape)
-        output = output[:, -1:, :, :]   
+        output=self.relu(output)
+        output=self.fc(output)
+        #print('the size of the output_UQfile{}'.format(output.size()))
+        #output = output[:, -1:, :, :]   
+        #print('the size of the output2_UQfile{}'.format(output.size()))
 
         #CNN based predictor
     
@@ -105,6 +111,7 @@ class AGCRN_UQ(nn.Module):
             log_var = log_var.squeeze(-1).reshape(-1, self.horizon, self.output_dim, self.num_node)
             log_var = log_var.permute(0, 1, 3, 2)  
             return mu, log_var
+        return output
         
     
     

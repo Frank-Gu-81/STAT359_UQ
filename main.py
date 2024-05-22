@@ -26,10 +26,10 @@ from model.test_methods import combined_test
 #*************************************************************************#
 Mode = 'train'
 DEBUG = 'True'
-DATASET = 'PEMS03'      #PEMS04/8/3/7
+DATASET = 'PEMS08'      #PEMS04/8/3/7
 DEVICE = 'cuda:0'
 MODEL = 'AGCRN'
-MODEL_NAME = "combined"#"combined/basic/dropout/heter"
+MODEL_NAME = "basic"#"combined/basic/dropout/heter"
 
 #get configuration
 config_file = 'model/{}_{}.conf'.format(DATASET, MODEL)
@@ -109,7 +109,7 @@ args.add_argument('--model_name', default=MODEL_NAME, type=str)
 
 #save model
 args.add_argument('--save_path', default='./model/saved_model/', type=str)
-args.add_argument('--save_filename', default='{}_{}.pth'.format(DATASET, 'saved_model'), type=str)
+args.add_argument('--save_filename', default='{}_{}_{}.pth'.format(DATASET, MODEL_NAME,'saved_model'), type=str)
 
 
 
@@ -171,11 +171,12 @@ trainer.train()
 
 ### Model Calibration
 
-T = train_cali_mc(trainer.model,10, args, val_loader, scaler)
-combined_test(trainer.model,10,trainer.args, trainer.test_loader, scaler,T)
+#T = train_cali_mc(trainer.model,10, args, val_loader, scaler)
+#combined_test(trainer.model,10,trainer.args, trainer.test_loader, scaler,T)
 
 # save model under /model/saved_model
 # Ensure directory exists
+
 if not os.path.exists(args.save_path):
     os.makedirs(args.save_path)
 
@@ -184,6 +185,9 @@ model_save_path = os.path.join(args.save_path, args.save_filename)
 torch.save(model.state_dict(), model_save_path)
 print('***************Model saved successfully at {}'.format(model_save_path))
 
+#path='./model/saved_model/PEMS08_basic_saved_model.pth'
+
+trainer.test(model, args, val_loader, test_loader,scaler, logger=None, path=model_save_path)
 # print('***************Model saved successfully under model/saved_model/{}_{}.pth!'.format(args.dataset, args.model_name))
 
 

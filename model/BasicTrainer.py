@@ -15,7 +15,11 @@ from torch.optim.swa_utils import AveragedModel, SWALR
 from torch.optim.lr_scheduler import CosineAnnealingLR
 #from model.train_methods import QuantileLoss
 
-
+def nonconformityscore(output,label):
+    #print(output.size())
+    #print(label.size())
+    score=torch.abs(output - label)
+    return score
 class Trainer(object):
     def __init__(self, model, loss, optimizer, train_loader, val_loader, test_loader,
                  scaler, args, lr_scheduler=None):
@@ -88,8 +92,10 @@ class Trainer(object):
             if self.args.model_name == "basic" or self.args.model_name=="dropout":
                     index = torch.randperm(data.shape[1])
                     data = data[:,index,:,:]
-                    
+                    #print('the size of the data{}'.format(data.size()))
                     output = self.model(data, target, teacher_forcing_ratio=0.)
+                    #print('the size of the output{}'.format(output.size()))
+                    #print('the size of the labelp{}'.format(label.size()))
                     loss = self.loss(output, label)
                     
             elif self.args.model_name == "heter" or self.args.model_name=="combined":    
@@ -179,22 +185,52 @@ class Trainer(object):
         self.model.load_state_dict(best_model)
         #self.val_epoch(self.args.epochs, self.test_loader)
         #self.test(self.model, self.args, self.test_loader, self.scaler, self.logger=None)    
-    
+
     @staticmethod
-    def test(model, args, data_loader, scaler, logger=None, path=None):
+    def test(model, args, val_loader, data_loader, scaler, logger=None, path=None):
         if path != None:
             check_point = torch.load(path)
-            state_dict = check_point['state_dict']
-            args = check_point['config']
-            model.load_state_dict(state_dict)
+            #state_dict = check_point['state_dict']
+            #args = check_point['config']
+            
+            model.load_state_dict(check_point)
             model.to(args.device)
             
         model.eval()
         #enable_dropout(model)
-        
+        quantile=0.05
+        alpha=[]
         y_pred = []
         y_true = []
+        ycal_true=[]
+        ycal_pred=[]
         with torch.no_grad():
+            for batch_idx, (data, target) in enumerate(val_loader):
+                data = data[..., :args.input_dim]
+                label = target[..., :args.output_dim]
+                #output, z, mu, log_sigma = model.sample_code_(data)
+                
+                #label = torch.log(label)
+                
+                output = model(data, target, teacher_forcing_ratio=0)
+                #print(output.size())
+                #output, *_ = model(data, target, teacher_forcing_ratio=0)
+                ycal_true.append(label)
+                ycal_pred.append(output)
+                alpha.append(nonconformityscore(output,label))
+        #print('the size of y_true is {} and y_true[0] is {}'.format(len(ycal_true), ycal_true[0].size()))
+        #print('the size of previous alpha is {} and alpha[0] is {}'.format(len(alpha), alpha[0].size()))
+        alpha=scaler.inverse_transform(torch.cat(alpha, dim=0))
+        #print('the size of new alpha is {} and alpha[0] is {}'.format(len(alpha), alpha.size()))
+
+    
+        sortedalpha,_ = torch.sort(alpha.detach())
+        #print('the size of sorted alpha is {}'.format(sortedalpha.size()))
+        q=sortedalpha[int((1-quantile)*len(sortedalpha))]
+        #print('the size of q is {}'.format(q.size()))
+        y_up=[]
+        y_lower=[]
+        with torch.no_grad():     
             for batch_idx, (data, target) in enumerate(data_loader):
                 data = data[..., :args.input_dim]
                 label = target[..., :args.output_dim]
@@ -206,6 +242,12 @@ class Trainer(object):
                 #output, *_ = model(data, target, teacher_forcing_ratio=0)
                 y_true.append(label)
                 y_pred.append(output)
+                #print('the size of label is {}'.format(label.size()))
+                y_up.append(label+q)
+                y_lower.append(label-q)
+        y_up = scaler.inverse_transform(torch.cat(y_up, dim=0))
+        #print('the size of upper bound is {}'.format(y_up.size()))
+        y_lower = scaler.inverse_transform(torch.cat(y_lower, dim=0))
         y_true = scaler.inverse_transform(torch.cat(y_true, dim=0))
         if args.real_value:
             y_pred = torch.cat(y_pred, dim=0)
@@ -213,12 +255,27 @@ class Trainer(object):
             y_pred = scaler.inverse_transform(torch.cat(y_pred, dim=0))
         #np.save('./{}_true.npy'.format(args.dataset), y_true.cpu().numpy())
         #np.save('./{}_pred.npy'.format(args.dataset), y_pred.cpu().numpy())
+        '''
         for t in range(y_true.shape[1]):
+            
             mae, rmse, mape, _, _ = All_Metrics(y_pred[:, t, ...], y_true[:, t, ...],
                                                 args.mae_thresh, args.mape_thresh)
             print("Horizon {:02d}, MAE: {:.2f}, RMSE: {:.2f}, MAPE: {:.4f}%".format(
                 t + 1, mae, rmse, mape*100))
+        '''
+        mpiw = 2*torch.mean(q)
+        in_num = torch.sum((y_true >= y_lower)&(y_true <= y_up ))
+        picp = in_num/(y_true.size(0)*y_true.size(1)*y_true.size(2))
+        print('the number of picp is')
+        print(picp)
+
+
+        print('the number of mpiw is')
+        print(mpiw)
+        
         mae, rmse, mape, _, _ = All_Metrics(y_pred, y_true, args.mae_thresh, args.mape_thresh)
         print("Average Horizon, MAE: {:.2f}, RMSE: {:.2f}, MAPE: {:.4f}%".format(
                     mae, rmse, mape*100))
+        
+        #print("Average Horizon: PICP: {:.4f}%, MPIW: {:.4f}".format(picp*100, mpiw))
     
